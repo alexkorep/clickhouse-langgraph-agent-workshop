@@ -127,12 +127,6 @@ def run_agent(user_question: str):
 
 
 def main():
-    """Main function to run the agent console app.
-
-    Behavior:
-    - If a question is passed as a command-line argument, run once and exit.
-    - Otherwise, fall back to interactive REPL mode.
-    """
     parser = argparse.ArgumentParser(
         description="Run the ClickHouse AI agent with a single question or in interactive mode."
     )
