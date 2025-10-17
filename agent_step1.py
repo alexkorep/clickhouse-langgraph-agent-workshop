@@ -9,13 +9,9 @@ from langgraph.prebuilt import create_react_agent
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI model
+# Create an OpenAI LLM instance
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# NOTE: "gpt-5-mini" may be an invalid model name. Adjust to a known available model if needed.
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-
-
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 llm = ChatOpenAI(
     model=DEFAULT_MODEL,
     api_key=OPENAI_API_KEY,
@@ -24,6 +20,7 @@ llm = ChatOpenAI(
 # System prompt for the agent
 SYSTEM_PROMPT = "You are a helpful assistant."
 
+# Create the agent executor
 tools = []
 agent_executor = create_react_agent(
     llm,
@@ -41,7 +38,6 @@ def run_agent(user_question: str):
     ]
 
     result = agent_executor.invoke({"messages": messages})
-
     final_message = result["messages"][-1]
     print(final_message.content)
 
