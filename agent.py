@@ -1,12 +1,12 @@
 import os
 import argparse
+import json
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langgraph.prebuilt import create_react_agent
 import clickhouse_connect
-import json
 
 # Load environment variables
 load_dotenv()
@@ -80,10 +80,50 @@ def run_agent(user_question: str):
         HumanMessage(content=user_question),
     ]
 
-    result = agent_executor.invoke({"messages": messages})
+    final_answer = None
 
-    final_message = result["messages"][-1]
-    print(final_message.content)
+    event_iterator = agent_executor.stream({"messages": messages})
+    # Iterate over streamed events from the agent graph
+    for event in event_iterator:
+        # Each event is a mapping of node name -> state slice
+        for _node, value in event.items():
+            msg_list = value.get("messages", [])
+            if not msg_list:
+                continue
+
+            last = msg_list[-1]
+
+            # Handle AI messages (reasoning + potential tool calls)
+            if isinstance(last, AIMessage):
+                reasoning_text = last.content
+                tool_calls = getattr(last, "tool_calls", None)
+
+                if reasoning_text:
+                    print(f"\n[Reasoning] {reasoning_text}")
+
+                if tool_calls:
+                    # Print each tool call input
+                    for i, tc in enumerate(tool_calls, start=1):
+                        name = tc.get("name")
+                        args = tc.get("args")
+                        try:
+                            args_str = json.dumps(args, ensure_ascii=False)
+                        except Exception:
+                            args_str = str(args)
+                        print(f"[Tool Call {i}] {name} args={args_str}")
+                else:
+                    # AIMessage without tool calls could be the final answer candidate
+                    final_answer = reasoning_text
+
+            # Handle tool result messages
+            elif isinstance(last, ToolMessage):
+                # ToolMessage.name may contain the tool name
+                tool_name = getattr(last, "name", "tool")
+                print(f"[Tool Result - {tool_name}] {last.content}")
+
+    if final_answer:
+        print("\n=== Final Answer ===")
+        print(final_answer)
 
 
 def main():
