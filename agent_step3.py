@@ -1,15 +1,30 @@
 import os
 import argparse
+import json
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.prebuilt import create_react_agent
 import clickhouse_connect
-import json
 
 # Load environment variables
 load_dotenv()
+
+# Create an OpenAI LLM instance
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini")
+llm = ChatOpenAI(
+    model=DEFAULT_MODEL,
+    api_key=OPENAI_API_KEY,
+)
+
+# System prompt for the agent
+SYSTEM_PROMPT = (
+    "You are a helpful database assistant. "
+    "When users ask questions about data, write and execute SQL queries against ClickHouse. "
+    "Always explain your results in a clear, human-friendly way."
+)
 
 
 @tool
@@ -44,26 +59,7 @@ def query_clickhouse(query: str) -> str:
         return f"Error executing query: {str(e)}"
 
 
-# Initialize OpenAI model
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-# NOTE: "gpt-5-mini" may be an invalid model name. Adjust to a known available model if needed.
-DEFAULT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-
-
-llm = ChatOpenAI(
-    model=DEFAULT_MODEL,
-    api_key=OPENAI_API_KEY,
-)
-
-# System prompt for the agent
-SYSTEM_PROMPT = (
-    "You are a helpful database assistant. "
-    "When users ask questions about data, write and execute SQL queries against ClickHouse. "
-    "Always explain your results in a clear, human-friendly way."
-)
-
-# Create the agent (current version of create_react_agent does not support state_modifier; we inject a system message manually)
+# Create the agent executor
 tools = [query_clickhouse]
 agent_executor = create_react_agent(
     llm,
@@ -81,21 +77,12 @@ def run_agent(user_question: str):
     ]
 
     result = agent_executor.invoke({"messages": messages})
-
     final_message = result["messages"][-1]
     print(final_message.content)
 
 
 def main():
-    """Main function to run the agent console app.
-
-    Behavior:
-    - If a question is passed as a command-line argument, run once and exit.
-    - Otherwise, fall back to interactive REPL mode.
-    """
-    parser = argparse.ArgumentParser(
-        description="Run the ClickHouse AI agent with a single question or in interactive mode."
-    )
+    parser = argparse.ArgumentParser(description="Run the AI agent.")
     parser.add_argument(
         "question", nargs="?", help="The natural language question to ask the agent."
     )
