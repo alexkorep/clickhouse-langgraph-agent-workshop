@@ -25,7 +25,9 @@ SYSTEM_PROMPT = "You are a helpful assistant."
 def my_encoder(text: str) -> str:
     """A simple text encoder tool."""
     print(f'Tool called with input: {text}')
-    return text + text.upper()
+    result = text + text.upper()
+    print(f'Tool returning: {result}')
+    return result
 
 
 # Create the agent executor
